@@ -37,3 +37,5 @@ poetry.lock
 *.pyc
 */__pycache__/*
 .vscode
+alembic*
+alembic/

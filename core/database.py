@@ -11,8 +11,10 @@ DB_PASS = config("DB_PASS", default="")
 
 SQLALCHEMY_POSTGRES_DATABASE_URL = f"postgresql://{DB_USER}:{DB_PASS}@{DB_SERVER}/{DB_NAME}"
 
-print(SQLALCHEMY_POSTGRES_DATABASE_URL)
 engine = create_engine(SQLALCHEMY_POSTGRES_DATABASE_URL)
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
 Base = declarative_base()
+
+# Create the tables in the database
+Base.metadata.create_all(engine)
