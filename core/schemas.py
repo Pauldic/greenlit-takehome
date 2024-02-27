@@ -1,84 +1,84 @@
 from pydantic import BaseModel as _BaseModel, EmailStr, Field, PositiveInt, validator
-from typing import Literal, Annotated
+# from pydantic.utils import GetterDict
+from typing import Any, List, Literal, Optional
 from enum import Enum
 import datetime
+from core.models import Film
 
 
 class BaseModel(_BaseModel):
     
     class Config:
         from_attributes = True
-        populate_by_name = True
+        arbitrary_types_allowed=True
+        # populate_by_name = True
         
-        
-class FilmRoles(str, Enum):
-    WRITER = 'writer'
-    PRODUCER = 'producer'
-    DIRECTOR = 'director'
-        
-class CompanyRoles(str, Enum):
-    WRITER = 'writer'
-    PRODUCER = 'producer'
-    DIRECTOR = 'director'
-    
-    
+
+# users and films have a many to many relationship where the role of the user can be either “writer”, “producer”, or “director”
+# users and companies have a many to many relationship where the role is “owner” or “member”
+# companies and films have a one to may relationship
+
+
+
 class UserBase(BaseModel):
-    # Common
     first_name: str = Field(max_length=64)
     last_name: str = Field(max_length=64)
-    email: EmailStr
     minimun_fee: PositiveInt
-    # role: str | None = None
-    # role: Literal['possible_value_1', 'possible_value_2']
 
 
-class UserCreate(UserBase):
-    pass
+class UserCreateSimple(UserBase):
+    # In case this will be used for signin, we might not want to make it editable
+    email: EmailStr
 
 
-class UserUpdate(UserCreate):
+class UserUpdateFull(UserBase):
     id: int
+
+class UserUpdatePartial(BaseModel):
+    id: int
+    first_name: Optional[str] = Field(max_length=64)
+    last_name: Optional[str] = Field(max_length=64)
+    minimun_fee: Optional[PositiveInt]
 
 
 class User(UserBase):
     id: int
-        
+    email: EmailStr
+      
 
 class CompanyBase(BaseModel):
-    # Common
     name: str = Field(max_length=32)
     contact_email_address: EmailStr
     phone_number: str = Field(max_length=15)
-    role: str | None = None
     
 
-class UserRole(User):
-    user_id: int
-    role: Literal['owner', 'member']
-    
-class CompanyCreate(CompanyBase):
-    # Create
-    staff: list[UserRole]
-    film_ids: list[int]
+class CompanyCreateSimple(CompanyBase):
+    pass
 
 
-class CompanyUpdate(CompanyCreate):
+class CompanyUpdate(CompanyBase):
+    id: int | None = 0
+
+
+class CompanyUpdatePartial(BaseModel):
     id: int
+    name: str = Field(max_length=32)
+    contact_email_address: EmailStr
+    phone_number: str = Field(max_length=15)
+
 
 class Company(CompanyBase):
     id: int
-    # film_ids: list[int] = []
 
 
 class FilmBase(BaseModel):
-    # Common
     title: str = Field(max_length=32)
     description: str | None = None
     budget: PositiveInt
     release_year: int
     genres: list[str] | None = []
-    role: str | None = None
-
+    company_id: int | None = 0
+    
     @validator("release_year")
     def valid_year(cls, v):
         this_year = datetime.date.today().year
@@ -86,32 +86,121 @@ class FilmBase(BaseModel):
             raise ValueError(f"Year must be a valid year between 1900 to {this_year}")
         return v
 
-class FilmCreate(FilmBase):
-    # Create
-    company_id: int
-    user_role: list[str]
     
-    class Config:
-        populate_by_name = True # For Proxy
-        from_attributes = True  
-        use_enum_values = True  # For Enum
-
-
+class FilmCreateSimple(FilmBase):
+    pass
+    
+      
+class FilmUpdate(FilmBase):
+    id: int | None = 0
+     
+    
 class Film(FilmBase):
     id: int
-    company: Company
    
+
+class RelatedUserSchema(UserBase):
+    id: int
+    email: EmailStr
+
+class RelatedCompanySchema(CompanyBase):
+    id: int
+
+class RelatedFilmSchema(FilmBase):
+    id: int
+
+
+class UserCompanySchema(BaseModel):
+    role: Literal['owner', 'member']
+    company: RelatedCompanySchema
+
+class CompanyUserSchema(BaseModel):
+    role: Literal['owner', 'member']
+    user: RelatedUserSchema
+
+class UserFilmSchema(BaseModel):
+    role: Literal['director', 'producer', 'writer']
+    film: RelatedFilmSchema
+
+class FilmUserSchema(BaseModel):
+    role: Literal['director', 'producer', 'writer']
+    user: RelatedUserSchema
 
 
 class UserSchema(User):
-    films: list[Film]
-    companies: list[Company]
-
+    films: list[UserFilmSchema] # n-n
+    companies: list[UserCompanySchema]  # n-n
 
 class CompanySchema(Company):
-    films: list[Film]
-    staff: list[User]
-
+    films: list[Film]   # 1-n reverse
+    staff: list[CompanyUserSchema]  # n-n
 
 class FilmSchema(Film):
-    crew_members: list[User]
+    crew_members: list[FilmUserSchema]  # n-n
+
+
+# ================ Create Schemas ===============
+
+
+class UserCompanyCreateSchema(BaseModel):
+    role: Literal['owner', 'member']
+    company: CompanyCreateSimple
+
+class CompanyUserCreateSchema(BaseModel):
+    role: Literal['owner', 'member']
+    user: UserCreateSimple
+
+class UserFilmCreateSchema(BaseModel):
+    role: Literal['director', 'producer', 'writer']
+    film: FilmCreateSimple
+
+class FilmUserCreateSchema(BaseModel):
+    role: Literal['director', 'producer', 'writer']
+    user: UserCreateSimple
+
+
+class UserCreateSchema(UserCreateSimple):
+    films: list[UserFilmCreateSchema] | None = [] # n-n
+    companies: list[UserCompanyCreateSchema] | None = []  # n-n
+
+class CompanyCreateSchema(CompanyCreateSimple):
+    films: list[Film] | None = []   # 1-n reverse
+    staff: list[CompanyUserCreateSchema] | None = []  # n-n
+
+class FilmCreateSchema(FilmCreateSimple):
+    crew_members: list[FilmUserCreateSchema] | None = []  # n-n
+
+
+# ================ Update Schemas ===============
+
+
+class UserCompanyUpdateSchema(BaseModel):
+    role: Literal['owner', 'member']
+    company: CompanyUpdate
+
+class CompanyUserUpdateSchema(BaseModel):
+    role: Literal['owner', 'member']
+    user: UserUpdateFull
+
+class UserFilmUpdateSchema(BaseModel):
+    role: Literal['director', 'producer', 'writer']
+    film: FilmUpdate
+
+class FilmUserUpdateSchema(BaseModel):
+    role: Literal['director', 'producer', 'writer']
+    user: UserUpdateFull
+
+
+class UserUpdateSchema(UserUpdateFull):
+    films: list[UserFilmUpdateSchema] | None = [] # n-n
+    companies: list[UserCompanyUpdateSchema] | None = []  # n-n
+
+class CompanyUpdateSchema(CompanyUpdate):
+    films: Optional[list[Film]] | None = []   # 1-n reverse
+    staff: Optional[list[CompanyUserUpdateSchema]] | None = []  # n-n
+
+class FilmUpdateSchema(Film):
+    crew_members: list[FilmUserUpdateSchema] | None = []  # n-n
+
+
+
