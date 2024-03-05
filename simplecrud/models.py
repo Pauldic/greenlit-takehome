@@ -51,12 +51,6 @@ class Film(Base):
     company = relationship("Company", back_populates="films")
     # n-n reverse
     crew_members = relationship(FilmCrewMembers, back_populates="film")
-    
-    # crew_members = relationship('User',
-    #                       secondary=UserFilmsAssociation,
-    #                       back_populates='films',
-    #                       cascade='all, delete'
-    #                 )
 
 
 class Company(Base):

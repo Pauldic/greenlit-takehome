@@ -2,9 +2,9 @@ from fastapi import Depends, FastAPI, HTTPException, status
 from sqlalchemy.orm import Session, load_only
 
 import typing
-from core.models import Company
-from . import crud, models, schemas
-from .database import SessionLocal, engine
+from simplecrud.models import Company
+from simplecrud import crud, models, schemas
+from simplecrud.database import SessionLocal, engine
 
 models.Base.metadata.create_all(bind=engine)
 
@@ -20,7 +20,7 @@ def get_db():
         db.close()
 
 
-@app.get("/users/{id}/", response_model=schemas.UserSchema, 
+@app.get("/api/users/{id}/", response_model=schemas.UserSchema, 
          response_model_exclude={'role'}, response_model_by_alias=False)
 def get_user(id: int, db: Session = Depends(get_db)):
     db_user = crud.get_user(db, id=id)
@@ -29,7 +29,7 @@ def get_user(id: int, db: Session = Depends(get_db)):
     return db_user
 
 
-@app.get("/users/email/{email}/", response_model=schemas.UserSchema, 
+@app.get("/api/api/users/email/{email}/", response_model=schemas.UserSchema, 
          response_model_exclude={'role'}, response_model_by_alias=False)
 def get_user_by_email(email: str, db: Session = Depends(get_db)):
     db_user = crud.get_user_by_email(db, email=email)
@@ -38,13 +38,13 @@ def get_user_by_email(email: str, db: Session = Depends(get_db)):
     return db_user
 
 
-@app.get("/users/", response_model=list[schemas.UserSchema], 
+@app.get("/api/users/", response_model=list[schemas.UserSchema], 
          response_model_exclude={'role'}, response_model_by_alias=False)
 def get_users(skip: int = 0, limit: int = 100, db: Session = Depends(get_db)):
     return crud.get_users(db, skip=skip, limit=limit)
 
 
-@app.post("/users/", response_model=schemas.UserSchema, status_code=status.HTTP_201_CREATED)
+@app.post("/api/users/", response_model=schemas.UserSchema, status_code=status.HTTP_201_CREATED)
 def create_user(user: schemas.UserCreateSchema, db: Session = Depends(get_db)):
     db_user = crud.get_user_by_email(db, email=user.email)
     if db_user:
@@ -52,7 +52,7 @@ def create_user(user: schemas.UserCreateSchema, db: Session = Depends(get_db)):
     return crud.create_user(db=db, user=user)
 
 
-@app.post("/users/{id}/", response_model=schemas.UserSchema)
+@app.post("/api/users/{id}/", response_model=schemas.UserSchema)
 def update_user(id: int, user: schemas.UserUpdateSchema, db: Session = Depends(get_db)):
     db_user = crud.get_user(db, id=id)
     if not db_user:
@@ -84,20 +84,20 @@ def update_user(id: int, user: schemas.UserUpdateSchema, db: Session = Depends(g
     return crud.update_user_post(db=db, user=user)
 
 
-# @app.put("/users/{id}/", response_model=schemas.UserSchema)
-# def update_user(id: int, user: schemas.UserUpdateSchema, db: Session = Depends(get_db)):
-#     db_user = crud.get_user(db, id=id)
-#     if not db_user:
-#         raise HTTPException(status_code=400, detail=f"User with user id ({id}) not found")
-#     if user.id != id:
-#         # To ensure consistency between the accessed and updated instance
-#         raise HTTPException(status_code=400, detail=f"Suspicious operation identified")
-#     return crud.update_user_put(db=db, user=user)
+@app.patch("/api/users/{id}/", response_model=schemas.UserSchema)
+def update_user(id: int, user: schemas.UserUpdatePartialSchema, db: Session = Depends(get_db)):
+    db_user = crud.get_user(db, id=id)
+    if not db_user:
+        raise HTTPException(status_code=400, detail=f"User with user id ({id}) not found")
+    if user.id != id:
+        # To ensure consistency between the accessed and updated instance
+        raise HTTPException(status_code=400, detail=f"Suspicious operation identified")
+    return crud.update_user_put(db=db, user=user)
 
 
 # ==================================Films URLs===================================
 
-@app.get("/films/{id}/", response_model=schemas.FilmSchema)
+@app.get("/api/films/{id}/", response_model=schemas.FilmSchema)
 def get_film(id: int, db: Session = Depends(get_db)):
     db_film = crud.get_film(db, id=id)
     if db_film is None:
@@ -105,12 +105,12 @@ def get_film(id: int, db: Session = Depends(get_db)):
     return db_film
 
 
-@app.get("/films/", response_model=list[schemas.FilmSchema])
+@app.get("/api/films/", response_model=list[schemas.FilmSchema])
 def get_films(skip: int = 0, limit: int = 100, db: Session = Depends(get_db)):
     return crud.get_films(db, skip=skip, limit=limit)
 
 
-@app.post("/films/", response_model=schemas.FilmSchema, status_code=status.HTTP_201_CREATED)
+@app.post("/api/films/", response_model=schemas.FilmSchema, status_code=status.HTTP_201_CREATED)
 def create_film(film: schemas.FilmCreateSchema, db: Session = Depends(get_db)):
     db_film = crud.get_film_title(db, title=film.title)
     if db_film:
@@ -119,7 +119,7 @@ def create_film(film: schemas.FilmCreateSchema, db: Session = Depends(get_db)):
 
 # ==================================Company URLs===================================
 
-@app.get("/companies/{id}/", response_model=schemas.CompanySchema)
+@app.get("/api/companies/{id}/", response_model=schemas.CompanySchema)
 def get_company(id: int, db: Session = Depends(get_db)):
     db_company = crud.get_company(db, id=id)
     if db_company is None:
@@ -127,12 +127,12 @@ def get_company(id: int, db: Session = Depends(get_db)):
     return db_company
 
 
-@app.get("/companies/", response_model=list[schemas.CompanySchema])
+@app.get("/api/companies/", response_model=list[schemas.CompanySchema])
 def get_companies(skip: int = 0, limit: int = 100, db: Session = Depends(get_db)):
     return crud.get_companies(db, skip=skip, limit=limit)
 
 
-@app.post("/companies/", response_model=schemas.CompanySchema, status_code=status.HTTP_201_CREATED)
+@app.post("/api/companies/", response_model=schemas.CompanySchema, status_code=status.HTTP_201_CREATED)
 def create_company(company: schemas.CompanyCreateSchema, db: Session = Depends(get_db)):
     db_company = crud.get_company_by_name(db, name=company.name)
     if db_company:

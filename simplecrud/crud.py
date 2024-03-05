@@ -1,20 +1,20 @@
 from sqlalchemy.orm import Session, joinedload
 
-from core.models import Company
+from simplecrud.models import Company
 from . import models, schemas
-import json
 
 def get_user(db: Session, id: int):
     # return db.query(models.User).filter(models.User.id == id).first()
-    return db.query(models.User).options(joinedload(models.User.films)).where(models.User.id == id).first()
+    return db.query(models.User).options(joinedload(models.User.films)).options(joinedload(models.User.companies)).where(models.User.id == id).first()
 
 
 def get_user_by_email(db: Session, email: str):
-    return db.query(models.User).options(joinedload(models.User.films)).where(models.User.email == email).first()
+    # return db.query(models.User).filter(models.User.email == email).first()   # 0.065
+    return db.query(models.User).options(joinedload(models.User.films)).options(joinedload(models.User.companies)).where(models.User.email == email).first()    # 0.068
 
 
 def get_users(db: Session, skip: int = 0, limit: int = 100):
-    return db.query(models.User).options(joinedload(models.User.films)).offset(skip).limit(limit).all()
+    return db.query(models.User).options(joinedload(models.User.films)).options(joinedload(models.User.companies)).offset(skip).limit(limit).all()
 
 
 def get_users_by_ids(db: Session, ids: list, skip: int = 0, limit: int = 100):
@@ -91,7 +91,7 @@ def create_user(db: Session, user: schemas.UserCreateSchema):
 
 
 def update_user_post(db: Session, user: schemas.UserUpdateSchema):
-    userUpdate = user.dict()
+    userUpdate = user.model_dump()
     userUpdate.pop('films', None)
     userUpdate.pop('companies', None)
     
@@ -184,9 +184,14 @@ def update_user_post(db: Session, user: schemas.UserUpdateSchema):
 
 def update_user_put(db: Session, user: schemas.UserUpdatePartial):
     # TODO: Implement Partial Update
-    print('User: ', user.dict())
-    db.query(models.User).filter(models.User.id == user.id).update(user.dict())
-    db.commit()
+    userUpdate = user.model_dump()
+    print('User 1: ', userUpdate)
+    userUpdate.pop('films', None)
+    userUpdate.pop('companies', None)
+    
+    print('User 2: ', userUpdate)
+    db.query(models.User).filter(models.User.id == user.id).update(userUpdate)
+    db.flush()
     return db.query(models.User).get(user.id)
         
         

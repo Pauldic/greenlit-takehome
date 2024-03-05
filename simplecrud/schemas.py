@@ -1,24 +1,22 @@
-from pydantic import BaseModel as _BaseModel, EmailStr, Field, PositiveInt, validator
+from pydantic import BaseModel as _BaseModel, root_validator, EmailStr, Field, PositiveInt, validator
+from pydantic.fields import FieldInfo
 # from pydantic.utils import GetterDict
-from typing import Any, List, Literal, Optional
-from enum import Enum
+from pydantic._internal._model_construction import ModelMetaclass
+from typing import Literal, Optional, Tuple, Dict, Any, Generic, Type, TypeVar
+from pydantic_partial import PartialModelMixin, create_partial_model
+
+# from enum import Enum
 import datetime
-from core.models import Film
+from simplecrud.models import Film
 
-
-class BaseModel(_BaseModel):
+    
+class BaseModel(PartialModelMixin, _BaseModel):
     
     class Config:
         from_attributes = True
         arbitrary_types_allowed=True
         # populate_by_name = True
         
-
-# users and films have a many to many relationship where the role of the user can be either “writer”, “producer”, or “director”
-# users and companies have a many to many relationship where the role is “owner” or “member”
-# companies and films have a one to may relationship
-
-
 
 class UserBase(BaseModel):
     first_name: str = Field(max_length=64)
@@ -36,8 +34,8 @@ class UserUpdateFull(UserBase):
 
 class UserUpdatePartial(BaseModel):
     id: int
-    first_name: Optional[str] = Field(max_length=64)
-    last_name: Optional[str] = Field(max_length=64)
+    first_name: Optional[str] = Field(max_length=64, required=False)
+    last_name: Optional[str] = Field(max_length=64, required=False)
     minimun_fee: Optional[PositiveInt]
 
 
@@ -62,9 +60,9 @@ class CompanyUpdate(CompanyBase):
 
 class CompanyUpdatePartial(BaseModel):
     id: int
-    name: str = Field(max_length=32)
-    contact_email_address: EmailStr
-    phone_number: str = Field(max_length=15)
+    name: Optional[str] = Field(max_length=32)
+    contact_email_address: Optional[str] = EmailStr
+    phone_number: Optional[str] = Field(max_length=15)
 
 
 class Company(CompanyBase):
@@ -94,6 +92,23 @@ class FilmCreateSimple(FilmBase):
 class FilmUpdate(FilmBase):
     id: int | None = 0
      
+     
+class FilmUpdatePartial(BaseModel):
+    id: int | None = 0
+    title: Optional[str] = Field(max_length=32)
+    description: Optional[str] | None = None
+    budget: Optional[PositiveInt]
+    release_year: Optional[int]
+    genres: list[str] | None = []
+    company_id: int | None = 0
+     
+    @validator("release_year")
+    def valid_year(cls, v):
+        this_year = datetime.date.today().year
+        if v < 1900 or v > this_year:
+            raise ValueError(f"Year must be a valid year between 1900 to {this_year}")
+        return v
+
     
 class Film(FilmBase):
     id: int
@@ -108,6 +123,14 @@ class RelatedCompanySchema(CompanyBase):
 
 class RelatedFilmSchema(FilmBase):
     id: int
+
+
+# ========================== Associations =============================
+
+
+# users and films have a many to many relationship where the role of the user can be either “writer”, “producer”, or “director”
+# users and companies have a many to many relationship where the role is “owner” or “member”
+# companies and films have a one to may relationship
 
 
 class UserCompanySchema(BaseModel):
@@ -202,5 +225,8 @@ class CompanyUpdateSchema(CompanyUpdate):
 class FilmUpdateSchema(Film):
     crew_members: list[FilmUserUpdateSchema] | None = []  # n-n
 
+# ============ Partial Update ===============
+# https://github.com/pydantic/pydantic/issues/6381/
 
+UserUpdatePartialSchema = UserUpdateSchema.model_as_partial()
 
